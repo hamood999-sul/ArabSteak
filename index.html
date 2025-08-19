@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>كاشير الطلبات - بسيط</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0d9488">
+  <style>
+    /* --- Mobile-first improvements --- */
+    @media (max-width: 768px){
+      .container{ flex-direction: column; padding:8px; gap:8px; }
+      .menu{ padding:8px; }
+      .grid{ grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap:10px; padding-bottom: 90px; }
+      .item{ min-height:96px; border-radius:14px; padding:12px; }
+      .toolbar .row{ gap:6px; }
+      #cats{ overflow:auto; white-space:nowrap; padding-bottom:2px; }
+      #cats .chip{ display:inline-block; margin-bottom:4px; }
+      .order{ position: fixed; left:0; right:0; bottom:0; border-radius:16px 16px 0 0; border-top:1px solid #1f2937; padding:10px; background:var(--card); max-height: 40vh; min-height: 56px; transition: max-height .25s ease;  overflow-y:auto; -webkit-overflow-scrolling:touch; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+      .order.open{ max-height: 80vh; }
+      .order-head{ position:sticky; top:0; padding-bottom:6px; background:linear-gradient(180deg, rgba(17,24,39,1) 0%, rgba(17,24,39,0.92) 60%, rgba(17,24,39,0) 100%); }
+      \1
+
+    .order-list.compact{ 
+      max-height: calc(var(--rowH, 64px) * 2 + 12px); 
+      overflow-y: auto; 
+    }
+    
+      .actions{ position: sticky; bottom:0; background: var(--card); padding-top:6px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
+      .order-toggle{ width:48px; height:5px; border-radius:999px; background:#334155; margin:0 auto 6px; }
+
+      /*COMPACT_MOBILE*/
+      .order-list.compact{ 
+        max-height: calc(var(--rowH, 64px) * 2 + 12px); 
+      }
+    
+    }
+
+    :root { --accent: #0d9488; --bg:#0b1120; --card:#111827; --text:#e5e7eb; --muted:#9ca3af; --paper:80mm; --margin:3mm; }
+    *{ box-sizing: border-box; }
+    html, body{ height:100%; background:#0b1120; color:var(--text); font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Kufi Arabic", "Noto Sans Arabic", "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji"; }
+    body{ margin:0; display:flex; flex-direction:column; }
+    header{ padding:12px 16px; background:linear-gradient(90deg, #0d9488, #0891b2); display:flex; align-items:center; justify-content:space-between; }
+    header h1{ margin:0; font-size:18px; }
+    header .pill{ background: rgba(255,255,255,.15); padding:6px 10px; border-radius:999px; font-size:12px; }
+    .container{ display:flex; gap:10px; padding:10px; flex:1; min-height:0; }
+    .menu, .order{ background:var(--card); border:1px solid #1f2937; border-radius:12px; padding:10px; }
+    .menu{ flex:2; display:flex; flex-direction:column; min-width:0; }
+    .order{ flex:1; display:flex; flex-direction:column; min-width:280px; }
+    .toolbar{ display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+    .toolbar input, .toolbar select{ background:#0b1220; color:var(--text); border:1px solid #1f2937; border-radius:8px; padding:10px; width:100%; }
+    .toolbar input::placeholder{ color:var(--muted); }
+    .toolbar .row{ display:flex; gap:8px; width:100%; }
+    .chip{ border:1px solid #1f2937; padding:6px 10px; border-radius:999px; cursor:pointer; font-size:12px; }
+    .chip.active{ background:var(--accent); border-color:var(--accent); color:white; }
+    .grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap:8px; overflow:auto; padding-bottom: 90px; }
+    .item{ background:#0b1220; border:1px solid #1f2937; padding:10px; border-radius:10px; cursor:pointer; display:flex; flex-direction:column; gap:6px; min-height:82px; justify-content:center; }
+    .item .name{ font-weight:600; }
+    .item .price{ color:var(--muted); font-size:12px; }
+    .order-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .order-head h2{ margin:0; font-size:16px; }
+    .order-list{ flex:1; overflow-y:auto; border-top:1px dashed #334155; border-bottom:1px dashed #334155; margin:8px 0; }
+    .row-line{ display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #1f2937; gap:8px; }
+    .qty{ display:flex; align-items:center; gap:6px; }
+    button{ background:var(--accent); color:white; border:none; border-radius:10px; padding:10px 12px; font-weight:600; cursor:pointer; }
+    button.ghost{ background:transparent; border:1px solid #1f2937; color:var(--text); }
+    button.warn{ background:#ef4444; }
+    textarea, input, select{ background:#0b1220; color:var(--text); border:1px solid #1f2937; border-radius:10px; padding:10px; }
+    .order-footer{ display:flex; flex-direction:column; gap:8px; }
+    .row-2{ display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+    .muted{ color:var(--muted); font-size:12px; }
+    .actions{ display:flex; gap:8px; }
+    .settings{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; padding:10px; }
+    .settings .card{ background:var(--card); border:1px solid #1f2937; border-radius:12px; padding:14px; width:min(800px, 100%); max-height:90vh; overflow:auto; }
+    .table{ width:100%; border-collapse:collapse; }
+    .table th, .table td{ border-bottom:1px solid #1f2937; padding:8px; text-align:right; }
+    .table input{ width:100%; }
+    .inline{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .badge{ font-size:11px; padding:2px 6px; background:#0b1220; border:1px solid #1f2937; border-radius:6px; }
+    /* Print ticket only */
+    #kitchen-ticket{ display:none; }
+    @media print {
+      #kitchen-ticket{ display:block; width:calc(var(--paper) - (2 * var(--margin))); margin:0 auto; }
+      @page { size: var(--paper) auto; margin: var(--margin); }
+      body *{ visibility:hidden !important; }
+      #kitchen-ticket, #kitchen-ticket *{ visibility:visible !important; }
+      #kitchen-ticket{ position:fixed; inset:auto 0 0 0; margin:auto; }
+      @page { size: 80mm auto; margin: 4mm; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>كاشير الطلبات</h1>
+    <div class="pill" id="installHint">يمكن التثبيت كتطبيق</div>
+  </header>
+
+  <div class="container">
+    <section class="menu">
+      <div class="toolbar">
+        <div class="row">
+          <input id="search" placeholder="ابحث في القائمة...">
+          <button class="ghost" id="openSettings">الإعدادات</button>
+        </div>
+        <div id="cats" class="inline"></div>
+      </div>
+      <div class="grid" id="menuGrid"></div>
+    </section>
+
+    <section class="order" id="orderSheet">
+      <div class="order-toggle" id="orderToggle"></div>
+      <div class="order-head">
+        <h2>الطلب الحالي</h2>
+        <div class="inline">
+          <span class="badge" id="orderId"></span>
+          <button class="ghost" id="clearOrder">مسح</button>
+        </div>
+      </div>
+
+      <div class="order-list" id="orderList"></div>
+
+      <div class="order-footer">
+        <div class="row-2">
+          <input id="customer" placeholder="رقم الطاولة / اسم الزبون" inputmode="numeric">
+          <select id="orderType">
+            <option value="محلي">محلي</option>
+            <option value="سفري">سفري</option>
+            <option value="توصيل">توصيل</option>
+          </select>
+        </div>
+        <textarea id="notes" rows="2" placeholder="ملاحظات للمطبخ (مثلاً: بدون بصل)"></textarea>
+        <div class="actions">
+          <button id="sendKitchen" style="font-size:16px; padding:12px 14px;">إرسال للمطبخ</button>
+          <button class="ghost" id="printCopy">طباعة نسخة</button>
+        </div>
+        <span class="muted">لا يوجد محاسبة مالية في هذا النظام — فقط إدارة الطلبات.</span>
+      </div>
+    </section>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="settings" id="settings">
+    <div class="card">
+      <div class="inline" style="justify-content:space-between;">
+        <h3 style="margin:0;">الإعدادات</h3>
+        <button class="ghost" id="closeSettings">إغلاق</button>
+      </div>
+      <p class="muted">حرّر قائمة الطعام، واختر تصنيفات، وحدد رابط طابعة المطبخ (اختياري).</p>
+
+      <div class="row-2">
+        <div>
+          <label>رابط طابعة المطبخ (اختياري)</label>
+          <input id="printerUrl" placeholder="مثال: http://192.168.1.50:8000/print">
+          <small class="muted">إن تركته فارغًا سيستخدم طباعة النظام.</small>
+        </div>
+        <div>
+          <label>اسم المطعم</label>
+          <input id="shopName" placeholder="مطعمي">
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div>
+          <label>عرض ورق الطابعة</label>
+          <select id="paperWidth">
+            <option value="80">80mm (قياسي)</option>
+            <option value="58">58mm</option>
+          </select>
+        </div>
+        <div>
+          <label>هوامش الطباعة (مم)</label>
+          <input id="paperMargin" type="number" min="0" max="10" step="1" value="3">
+        </div>
+      </div>
+
+      <h4>القائمة</h4>
+      <table class="table" id="itemsTable">
+        <thead>
+          <tr><th>التصنيف</th><th>الاسم</th><th>السعر</th><th>إجراءات</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="inline" style="margin-top:8px;">
+        <input id="newCat" placeholder="تصنيف">
+        <input id="newName" placeholder="اسم الصنف">
+        <input id="newPrice" type="number" step="0.01" placeholder="سعر (للعرض فقط)">
+        <button id="addItem">إضافة</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden print ticket -->
+  <div id="kitchen-ticket"></div>
+
+<script>
+// --- Storage helpers ---
+const db = {
+  load(key, def){ try{ return JSON.parse(localStorage.getItem(key)) ?? def; }catch(e){ return def; } },
+  save(key,val){ localStorage.setItem(key, JSON.stringify(val)); }
+};
+
+// --- Default menu items ---
+const defaultItems = [
+  {id:1, cat:"سلطات و مقبلات", name:"صحن ثوم", price:5.0},
+  {id:2, cat:"سلطات و مقبلات", name:"متبل", price:7.5},
+  {id:3, cat:"سلطات و مقبلات", name:"حمص", price:7.5},
+  {id:4, cat:"سلطات و مقبلات", name:"بابا غنوج", price:10.0},
+  {id:5, cat:"سلطات و مقبلات", name:"شوربة عدس", price:5.0},
+  {id:6, cat:"سلطات و مقبلات", name:"صحن بطاطا", price:7.5},
+  {id:7, cat:"سلطات و مقبلات", name:"كبة مشوية", price:5.0},
+  {id:8, cat:"سلطات و مقبلات", name:"كبة مقلية", price:8.0},
+  {id:9, cat:"سلطات و مقبلات", name:"سلطة", price:7.5},
+  {id:10, cat:"سلطات و مقبلات", name:"كبة نية", price:5.0},
+  {id:11, cat:"سلطات و مقبلات", name:"فتوش", price:10.0},
+  {id:12, cat:"سلطات و مقبلات", name:"تبولة", price:10.0},
+  {id:13, cat:"سلطات و مقبلات", name:"مقبلات مشكلة", price:18.0},
+  {id:14, cat:"أطباق شرقية", name:"بطاطا محشية", price:7.5},
+  {id:15, cat:"أطباق شرقية", name:"صحن رز", price:7.5},
+  {id:16, cat:"أطباق شرقية", name:"طبق فلافل", price:14.0},
+  {id:17, cat:"أطباق عرب ستيك", name:"بروستد", price:14.0},
+  {id:18, cat:"أطباق عرب ستيك", name:"كريسبي", price:12.5},
+  {id:19, cat:"أطباق عرب ستيك", name:"شاورما عربي", price:14.0},
+  {id:20, cat:"أطباق عرب ستيك", name:"نصف فروج مشوي", price:14.0},
+  {id:21, cat:"أطباق عرب ستيك", name:"طبق فاهيتا", price:14.0},
+  {id:22, cat:"أطباق عرب ستيك", name:"مندي لحم بعظمو", price:18.0},
+  {id:23, cat:"أطباق عرب ستيك", name:"مندي دجاج", price:12.5},
+  {id:24, cat:"أطباق عرب ستيك", name:"فريكة لحم", price:18.0},
+  {id:25, cat:"أطباق عرب ستيك", name:"فريكة دجاج", price:15.0},
+  {id:26, cat:"أطباق عرب ستيك", name:"فروج كامل", price:20.0},
+  {id:27, cat:"سندويشات", name:"سندويشة كباب", price:10.0},
+  {id:28, cat:"سندويشات", name:"سندويشة شيش", price:10.0},
+  {id:29, cat:"سندويشات", name:"سندويشة فلافل", price:7.5},
+  {id:30, cat:"مشاوي", name:"ماريا", price:10.0},
+  {id:31, cat:"مشاوي", name:"وجبة أضلاع", price:15.0},
+  {id:32, cat:"مشاوي", name:"وجبة جناحات مشوية", price:13.0},
+  {id:33, cat:"مشاوي", name:"وجبة مشاوي مشكلة", price:18.0},
+  {id:34, cat:"مشاوي", name:"وجبة لحمة بالصينية", price:15.0},
+  {id:35, cat:"مشاوي", name:"وجبة مشاوي خضار", price:15.0},
+  {id:36, cat:"مشاوي", name:"وجبة أرابستيك", price:30.0},
+  {id:37, cat:"مشاوي", name:"وجبة شيش طاووق", price:15.0},
+  {id:38, cat:"مشاوي العائلة", name:"كيلو شيش طاووق", price:40.0},
+  {id:39, cat:"مشاوي العائلة", name:"كيلو مشكل", price:45.0},
+  {id:40, cat:"مشاوي العائلة", name:"كيلو كباب غنم", price:50.0},
+  {id:41, cat:"مشاوي العائلة", name:"كيلو شقف غنم", price:60.0},
+  {id:42, cat:"مشاوي العائلة", name:"منسف رز و لحم", price:75.0},
+  {id:43, cat:"مشاوي العائلة", name:"منسف رز دجاج", price:65.0},
+  {id:44, cat:"مشاوي العائلة", name:"نصف كيلو مشكل", price:25.0},
+  {id:45, cat:"صوصات", name:"مايونيز", price:1.5},
+  {id:46, cat:"صوصات", name:"كتشب", price:1.5},
+  {id:47, cat:"صوصات", name:"كوكتيل", price:2.0},
+  {id:48, cat:"بيتزا", name:"بيتزا مارغاريتا", price:9.5},
+  {id:49, cat:"بيتزا", name:"بيتزا سبيشيال", price:11.0},
+  {id:50, cat:"بيتزا", name:"بيتزا فونغي", price:11.0},
+  {id:51, cat:"بيتزا", name:"بيتزا سلامي", price:11.0},
+  {id:52, cat:"بيتزا", name:"بيتزا بيبروني", price:11.0},
+  {id:53, cat:"بيتزا", name:"بيتزا الفصول الأربعة", price:11.0},
+  {id:54, cat:"بيتزا", name:"بيتزا لحم ديك رومي", price:11.0},
+  {id:55, cat:"وجبة أطفال", name:"وجبة ناغت", price:9.0},
+  {id:56, cat:"المشروبات الباردة", name:"مياه معدنية صغير", price:2.5},
+  {id:57, cat:"المشروبات الباردة", name:"مياه معدنية كبير", price:5.0},
+  {id:58, cat:"المشروبات الباردة", name:"كوكا كولا", price:3.5},
+  {id:59, cat:"المشروبات الباردة", name:"كوكا كولا زيرو", price:3.5},
+  {id:60, cat:"المشروبات الباردة", name:"فانتا برتقال", price:3.5},
+  {id:61, cat:"المشروبات الباردة", name:"فانتا إكزوتيك", price:3.5},
+  {id:62, cat:"المشروبات الباردة", name:"سبرايت", price:3.5},
+  {id:63, cat:"المشروبات الباردة", name:"رادلار", price:4.0},
+  {id:64, cat:"المشروبات الباردة", name:"هيفي", price:4.0},
+  {id:65, cat:"المشروبات الباردة", name:"عصير برتقال", price:7.5},
+  {id:66, cat:"المشروبات الباردة", name:"بولو", price:7.5},
+  {id:67, cat:"المشروبات الباردة", name:"موهيتو", price:7.5},
+  {id:68, cat:"المشروبات الباردة", name:"فريز", price:7.5},
+  {id:69, cat:"المشروبات الباردة", name:"آيس تي", price:5.0},
+  {id:70, cat:"المشروبات الباردة", name:"عيران", price:2.5},
+  {id:71, cat:"المشروبات الباردة", name:"ريد بول", price:5.0},
+  {id:72, cat:"كوكتيلات", name:"كوكتيل موز و حليب", price:7.5},
+  {id:73, cat:"كوكتيلات", name:"موز حليب فريز", price:8.5},
+  {id:74, cat:"كوكتيلات", name:"كوكتيل فواكه", price:10.0},
+  {id:75, cat:"حلويات", name:"بوظة عربية", price:7.5},
+  {id:76, cat:"حلويات", name:"سكوب بوظة", price:2.0},
+  {id:77, cat:"الأراكيل", name:"أركيلة تفاحتين", price:15.0},
+  {id:78, cat:"الأراكيل", name:"أركيلة عنب و نعنع", price:15.0},
+  {id:79, cat:"الأراكيل", name:"اركيلة بولو", price:15.0},
+  {id:80, cat:"الأراكيل", name:"اركيلة بطيخ", price:15.0},
+  {id:81, cat:"الأراكيل", name:"أركيلة أفريكا كوين", price:15.0},
+  {id:82, cat:"الأراكيل", name:"اركيلة لوڤ 66", price:15.0},
+  {id:83, cat:"الأراكيل", name:"اركيلة هامبورغ", price:15.0},
+  {id:84, cat:"الأراكيل", name:"أركيلة مولوكو", price:15.0},
+  {id:85, cat:"المشروبات الساخنة", name:"قهوة", price:3.5},
+  {id:86, cat:"المشروبات الساخنة", name:"قهوة عربية", price:3.5},
+  {id:87, cat:"المشروبات الساخنة", name:"ايسبريسو", price:3.5},
+  {id:88, cat:"المشروبات الساخنة", name:"كابتشينو", price:4.5},
+  {id:89, cat:"المشروبات الساخنة", name:"لاتيه ماخياتو", price:5.0},
+  {id:90, cat:"المشروبات الساخنة", name:"نسكافيه", price:3.5},
+  {id:91, cat:"المشروبات الساخنة", name:"هوت شوكليت", price:5.0},
+  {id:92, cat:"المشروبات الساخنة", name:"شاي", price:2.5},
+];
+
+let items = db.load('items', defaultItems);
+let settings = db.load('settings', { printerUrl:"", shopName:"مطعمي", paperWidth: "80", paperMargin: 3 });
+
+// --- UI elements ---
+const grid = document.getElementById('menuGrid');
+const orderList = document.getElementById('orderList');
+const orderIdEl = document.getElementById('orderId');
+const searchEl = document.getElementById('search');
+const catsEl = document.getElementById('cats');
+const customerEl = document.getElementById('customer');
+const orderTypeEl = document.getElementById('orderType');
+const notesEl = document.getElementById('notes');
+const ticketEl = document.getElementById('kitchen-ticket');
+const orderSheet = document.getElementById('orderSheet');
+const orderToggle = document.getElementById('orderToggle');
+const onboarding = document.getElementById('onboarding');
+const skipHelp = () => { localStorage.setItem('pos_seen_help','1'); onboarding.style.display='none'; };
+
+
+const settingsEl = document.getElementById('settings');
+const openSettingsBtn = document.getElementById('openSettings');
+const closeSettingsBtn = document.getElementById('closeSettings');
+const itemsTable = document.getElementById('itemsTable').querySelector('tbody');
+const addItemBtn = document.getElementById('addItem');
+const newCatEl = document.getElementById('newCat');
+const newNameEl = document.getElementById('newName');
+const newPriceEl = document.getElementById('newPrice');
+const printerUrlEl = document.getElementById('printerUrl');
+const shopNameEl = document.getElementById('shopName');
+const paperWidthEl = document.getElementById('paperWidth');
+const paperMarginEl = document.getElementById('paperMargin');
+
+// --- Order state ---
+let order = { id: genOrderId(), items:[], type:"محلي", customer:"", notes:"" };
+function genOrderId(){ return 'ORD-' + new Date().toISOString().replace(/[-:TZ.]/g,'').slice(0,12); }
+
+function renderCategories(){
+  const cats = Array.from(new Set(items.map(i=>i.cat)));
+  catsEl.innerHTML = '<span class="chip active" data-cat="*">الكل</span>' + 
+    cats.map(c=>`<span class="chip" data-cat="${c}">${c}</span>`).join('');
+  catsEl.querySelectorAll('.chip').forEach(ch => ch.onclick = () => {
+    catsEl.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
+    ch.classList.add('active');
+    setSheet(false);
+    renderMenu();
+  });
+}
+
+function renderMenu(){
+  const term = searchEl.value?.trim();
+  const active = catsEl.querySelector('.chip.active')?.dataset.cat || '*';
+  const filtered = items.filter(i => (active==='*' || i.cat===active) && (!term || (i.name.includes(term) || i.cat.includes(term))));
+  grid.innerHTML = filtered.map(i => `
+    <div class="item" data-id="${i.id}">
+      <div class="name">${i.name}</div>
+      <div class="price">${i.price ?? ''} <span class="muted">€</span></div>
+      <div class="muted">${i.cat}</div>
+    </div>
+  `).join('');
+  grid.querySelectorAll('.item').forEach(el => el.onclick = () => addToOrder(+el.dataset.id));
+}
+
+// Bottom-sheet toggle (mobile)
+function setSheet(open){ if(!orderSheet) return; orderSheet.classList.toggle('open', !!open); }
+orderToggle && (orderToggle.onclick = () => { setSheet(!orderSheet.classList.contains('open')); });
+
+// Open sheet automatically when item added (on mobile)
+function addToOrder(id){
+  const it = items.find(x=>x.id===id);
+  const found = order.items.find(x=>x.id===id);
+  if(found) found.qty += 1;
+  else order.items.push({ id, name:it.name, cat:it.cat, price:it.price, qty:1 });
+  renderOrder();
+  if (window.innerWidth <= 768) setSheet(true);
+}
+
+function renderOrder(){
+  orderIdEl.textContent = order.id;
+  if(order.items.length){
+    orderList.innerHTML = order.items.map(line => `
+      <div class="row-line">
+        <div style="flex:1;">
+          <div>${line.name}</div>
+          <div class="muted">${line.cat}</div>
+        </div>
+        <div class="qty">
+          <button class="ghost" data-act="minus" data-id="${line.id}">-</button>
+          <span>${line.qty}</span>
+          <button class="ghost" data-act="plus" data-id="${line.id}">+</button>
+          <button class="ghost" data-act="del" data-id="${line.id}">حذف</button>
+        </div>
+      </div>
+    `).join('');
+  } else {
+    orderList.innerHTML = '<p class="muted">لا يوجد أصناف في الطلب.</p>';
+  }
+  // Keep last items visible and height compact by default on mobile
+  orderList.classList.add('compact');
+  // Scroll to bottom so newest items are visible
+  orderList.scrollTop = orderList.scrollHeight;
+
+  orderList.querySelectorAll('button').forEach(b => b.onclick = () => {
+    const id = +b.dataset.id, act = b.dataset.act;
+    const line = order.items.find(x=>x.id===id);
+    if(!line) return;
+    if(act==='plus') line.qty++;
+    if(act==='minus') { line.qty--; if(line.qty<=0) order.items = order.items.filter(x=>x.id!==id); }
+    if(act==='del') order.items = order.items.filter(x=>x.id!==id);
+    renderOrder();
+  });
+}
+
+
+document.getElementById('clearOrder').onclick = () => { order = { id: genOrderId(), items:[], type:order.type, customer:'', notes:'' }; renderOrder(); };
+searchEl.oninput = () => { renderMenu(); setSheet(false); }; 
+searchEl.onfocus = () => { setSheet(false); };
+orderTypeEl.onchange = e => order.type = e.target.value;
+customerEl.oninput = e => order.customer = e.target.value;
+notesEl.oninput = e => order.notes = e.target.value;
+
+// --- Printing ---
+async function postToPrinter(payload){
+  const url = (settings.printerUrl || '').trim();
+  if(!url) return false;
+  try{
+    const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    return res.ok;
+  }catch(e){
+    console.error('Printer post failed', e);
+    return false;
+  }
+}
+
+function buildTicketHTML(copy=false){
+  const now = new Date();
+  const lines = order.items.map(l => `<tr><td style="text-align:center">${l.qty}</td><td>${l.name}</td></tr>`).join('');
+  return `
+    <div style="font-family: 'Noto Kufi Arabic','Noto Sans Arabic',sans-serif; font-size:13px; line-height:1.4;">
+      <div style="text-align:center; font-weight:bold; margin-bottom:6px; font-size:15px;">${settings.shopName || 'مطعمي'}</div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:12px;">
+        <div># ${order.id}</div>
+        <div>${now.toLocaleString()}</div>
+      </div>
+      <div style="margin-bottom:6px; border-bottom:1px dashed #777; padding-bottom:4px;">نوع: ${order.type} &nbsp; | &nbsp; للزبون: ${order.customer || '-'}</div>
+      <table style="width:100%; border-collapse:collapse; font-size:14px;">
+        <thead><tr><th style="text-align:center; border-bottom:1px dashed #777; padding:3px 0; width:22%">الكمية</th><th style="text-align:right; border-bottom:1px dashed #777; padding:3px 0;">الصنف</th></tr></thead>
+        <tbody>${lines || '<tr><td colspan="2" style="padding:4px 0;">لا أصناف</td></tr>'}</tbody>
+      </table>
+      ${order.notes ? `<div style="margin-top:8px; padding:6px; border:1px dashed #777; font-weight:bold;">ملاحظات: ${order.notes}</div>`: ''}
+      <div style="margin-top:10px; text-align:center;">*** ${copy ? 'نسخة' : 'إرسال للمطبخ'} ***</div>
+    </div>
+  `;
+}
+
+async function sendToKitchen(copy=false){
+  if(order.items.length===0){ alert('لا يوجد أصناف للارسال'); return; }
+  // Try network printer first if configured
+  const payload = { shop: settings.shopName, order_id: order.id, type: order.type, customer: order.customer, notes: order.notes, items: order.items.map(x=>({name:x.name, qty:x.qty})) };
+  let posted = await postToPrinter(payload);
+  if(!posted){
+    // Fallback: browser print
+    ticketEl.innerHTML = buildTicketHTML(copy);
+    // Dynamic print sizing
+    const dyn = document.getElementById('dyn-print') || document.createElement('style');
+    dyn.id = 'dyn-print';
+    const paper = (settings.paperWidth === '58') ? '58mm' : '80mm';
+    const margin = (settings.paperMargin ?? 3) + 'mm';
+    dyn.textContent = `:root{ --paper:${paper}; --margin:${margin}; } @media print { @page { size: ${paper} auto; margin:${margin}; } }`;
+    document.head.appendChild(dyn);
+    await new Promise(r=>setTimeout(r, 60));
+    window.print();
+  }
+  // Reset order after send (not for copy)
+  if(!copy){ order = { id: genOrderId(), items:[], type:order.type, customer:'', notes:'' }; renderOrder(); customerEl.value=''; notesEl.value=''; }
+}
+
+document.getElementById('sendKitchen').onclick = () => sendToKitchen(false);
+document.getElementById('printCopy').onclick = () => sendToKitchen(true);
+
+// --- Settings ---
+function openSettings(){ settingsEl.style.display = 'flex'; renderItemsTable(); printerUrlEl.value = settings.printerUrl || ''; shopNameEl.value = settings.shopName || ''; paperWidthEl.value = settings.paperWidth || '80'; paperMarginEl.value = settings.paperMargin ?? 3; }
+function closeSettings(){ settingsEl.style.display = 'none'; }
+openSettingsBtn.onclick = () => { setSheet(false); openSettings(); };
+closeSettingsBtn.onclick = closeSettings;
+printerUrlEl.oninput = e => { settings.printerUrl = e.target.value; db.save('settings', settings); };
+shopNameEl.oninput = e => { settings.shopName = e.target.value; db.save('settings', settings); };
+paperWidthEl.onchange = e => { settings.paperWidth = String(e.target.value || '80'); db.save('settings', settings); };
+paperMarginEl.oninput = e => { const v = parseInt(e.target.value||'3',10); settings.paperMargin = isNaN(v)?3:Math.max(0, Math.min(10, v)); db.save('settings', settings); };
+
+function renderItemsTable(){
+  itemsTable.innerHTML = items.map(i => `
+    <tr data-id="${i.id}">
+      <td><input value="${i.cat}"></td>
+      <td><input value="${i.name}"></td>
+      <td><input type="number" step="0.01" value="${i.price ?? ''}"></td>
+      <td><button class="ghost del">حذف</button></td>
+    </tr>
+  `).join('');
+  // bind edits
+  [...itemsTable.querySelectorAll('tr')].forEach(tr => {
+    const id = +tr.dataset.id;
+    const [catI, nameI, priceI] = tr.querySelectorAll('input');
+    const delB = tr.querySelector('button.del');
+    catI.oninput = () => { const it = items.find(x=>x.id===id); it.cat = catI.value; db.save('items', items); renderCategories(); renderMenu(); };
+    nameI.oninput = () => { const it = items.find(x=>x.id===id); it.name = nameI.value; db.save('items', items); renderMenu(); };
+    priceI.oninput = () => { const it = items.find(x=>x.id===id); it.price = parseFloat(priceI.value||0); db.save('items', items); renderMenu(); };
+    delB.onclick = () => { items = items.filter(x=>x.id!==id); db.save('items', items); renderItemsTable(); renderCategories(); renderMenu(); };
+  });
+}
+
+addItemBtn.onclick = () => {
+  const cat = newCatEl.value.trim(), name = newNameEl.value.trim(); 
+  const price = parseFloat(newPriceEl.value || '0');
+  if(!cat || !name){ alert('أدخل تصنيفًا واسم صنف'); return; }
+  const id = (items.reduce((m,i)=>Math.max(m,i.id),0) || 0) + 1;
+  items.push({ id, cat, name, price });
+  db.save('items', items);
+  newCatEl.value=''; newNameEl.value=''; newPriceEl.value='';
+  renderItemsTable(); renderCategories(); renderMenu();
+};
+
+// --- PWA install hint ---
+let deferredPrompt;
+const installHint = document.getElementById('installHint');
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installHint.style.display = 'block';
+  installHint.onclick = async () => {
+    installHint.textContent = '...';
+    await deferredPrompt.prompt();
+    deferredPrompt = null;
+    installHint.style.display = 'none';
+  };
+});
+window.addEventListener('appinstalled', () => { installHint.style.display = 'none'; });
+
+
+function setVH(){ const vh = window.innerHeight * 0.01; document.documentElement.style.setProperty('--vh', `${vh}px`); }
+setVH(); window.addEventListener('resize', setVH);
+
+// --- Init ---
+renderCategories();
+renderMenu();
+renderOrder();
+
+// --- Service Worker ---
+if('serviceWorker' in navigator){
+  
+// Onboarding tips
+window.addEventListener('load', () => {
+  try{
+    if(!localStorage.getItem('pos_seen_help')){
+      onboarding.style.display = 'flex';
+    }
+  }catch(e){}
+});
+document.getElementById('startHelp').onclick = () => { onboarding.style.display='none'; };
+document.getElementById('skipHelp').onclick = () => { skipHelp(); };
+
+window.addEventListener('load', () => navigator.serviceWorker.register('service-worker.js'));
+}
+</script>
+
+  <div id="onboarding" style="position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; z-index:9999; align-items:flex-end; justify-content:center; padding:16px;">
+    <div style="background:var(--card); border:1px solid #1f2937; border-radius:16px; padding:14px; width:min(520px, 100%);">
+      <h3 style="margin-top:0;">دليل سريع</h3>
+      <ol style="margin:0 0 10px 0; padding-right:18px; line-height:1.7;">
+        <li>اختر الأصناف من الشبكة بالأعلى — كل ضغطة تضيف للطلب.</li>
+        <li>اسحب شريط الطلب بالأعلى لفتحه — عدّل الكميات وأضف الملاحظات.</li>
+        <li>اضغط <b>إرسال للمطبخ</b> للطباعة مباشرة.</li>
+      </ol>
+      <div class="inline" style="justify-content:flex-end; gap:8px;">
+        <button class="ghost" id="skipHelp">لا تظهر مرة أخرى</button>
+        <button id="startHelp">فهمت</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
